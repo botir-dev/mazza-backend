@@ -1,0 +1,9 @@
+node_modules
+uploads/videos/*
+uploads/audio/*
+uploads/thumbnails/*
+uploads/watermarked/*
+uploads/tmp/*
+!uploads/**/.gitkeep
+.env
+.git
