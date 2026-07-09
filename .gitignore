@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.example
+uploads/videos/*
+uploads/audio/*
+uploads/thumbnails/*
+uploads/watermarked/*
+uploads/tmp/*
+!uploads/videos/.gitkeep
+!uploads/audio/.gitkeep
+!uploads/thumbnails/.gitkeep
+!uploads/watermarked/.gitkeep
+!uploads/tmp/.gitkeep
