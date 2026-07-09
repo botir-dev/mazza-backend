@@ -5,7 +5,11 @@ const User = require("../models/User");
 async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    // <video>/<img> kabi teglar Authorization header yubora olmaydi,
+    // shuning uchun video oqimi uchun token ?token= query orqali ham qabul qilinadi.
+    const token = header.startsWith("Bearer ")
+      ? header.slice(7)
+      : (req.query.token || null);
     if (!token) return res.status(401).json({ error: "Token topilmadi, iltimos tizimga kiring" });
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
