@@ -20,10 +20,18 @@ fs.mkdirSync(TMP_DIR, { recursive: true });
 
 const upload = multer({
   dest: TMP_DIR,
-  limits: { fileSize: Number(process.env.MAX_VIDEO_SIZE) || 2 * 1024 * 1024 * 1024 },
+  limits: {
+    fileSize: Number(process.env.MAX_VIDEO_SIZE) || 2 * 1024 * 1024 * 1024,
+  },
   fileFilter: (req, file, cb) => {
-    const allowed = ["video/mp4", "video/quicktime", "video/x-matroska", "video/webm"];
-    if (!allowed.includes(file.mimetype)) return cb(new Error("Faqat video fayllar qabul qilinadi"));
+    const allowed = [
+      "video/mp4",
+      "video/quicktime",
+      "video/x-matroska",
+      "video/webm",
+    ];
+    if (!allowed.includes(file.mimetype))
+      return cb(new Error("Faqat video fayllar qabul qilinadi"));
     cb(null, true);
   },
 });
@@ -42,10 +50,15 @@ router.post(
     const tmpFile = req.file && req.file.path;
     try {
       const { title, lessonId } = req.body;
-      if (!req.file) return res.status(400).json({ error: "Video fayl biriktirilmagan" });
-      if (!title || !lessonId) return res.status(400).json({ error: "Sarlavha va dars ID kerak" });
+      if (!req.file)
+        return res.status(400).json({ error: "Video fayl biriktirilmagan" });
+      if (!title || !lessonId)
+        return res.status(400).json({ error: "Sarlavha va dars ID kerak" });
 
-      const lesson = await Lesson.findOne({ _id: lessonId, teacher: req.user._id });
+      const lesson = await Lesson.findOne({
+        _id: lessonId,
+        teacher: req.user._id,
+      });
       if (!lesson) return res.status(404).json({ error: "Dars topilmadi" });
 
       const video = new Video({
@@ -85,14 +98,19 @@ router.post(
       if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
       if (!res.headersSent) res.status(500).json({ error: "Server xatoligi" });
     }
-  }
+  },
 );
 
 // Video holatini (processing/ready/failed) tekshirish
 router.get("/:id/status", requireAuth, async (req, res) => {
   const video = await Video.findById(req.params.id);
   if (!video) return res.status(404).json({ error: "Video topilmadi" });
-  res.json({ status: video.status, qualities: Object.keys(video.qualityVariants || {}) });
+  // qualityVariants - haqiqiy Mongoose Map, shuning uchun Object.keys() emas,
+  // Map.keys() orqali o'qish kerak (aks holda ichki texnik xususiyatlar chiqib qoladi)
+  const qualities = video.qualityVariants
+    ? Array.from(video.qualityVariants.keys())
+    : [];
+  res.json({ status: video.status, qualities });
 });
 
 /**
@@ -102,9 +120,11 @@ router.get("/:id/status", requireAuth, async (req, res) => {
 async function checkAccess(req, video) {
   const lesson = await Lesson.findById(video.lesson);
   if (!lesson || !lesson.isActive) return false;
-  if (req.user.role === "teacher") return String(lesson.teacher) === String(req.user._id);
+  if (req.user.role === "teacher")
+    return String(lesson.teacher) === String(req.user._id);
   if (req.user.role === "superadmin") return true;
-  if (req.user.role === "student") return String(lesson.group) === String(req.user.group);
+  if (req.user.role === "student")
+    return String(lesson.group) === String(req.user.group);
   return false;
 }
 
@@ -118,17 +138,19 @@ router.get("/:id/stream", requireAuth, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video || !video.isActive || video.status !== "ready") {
-      return res.status(404).json({ error: "Video topilmadi yoki hali tayyor emas" });
+      return res
+        .status(404)
+        .json({ error: "Video topilmadi yoki hali tayyor emas" });
     }
     const allowed = await checkAccess(req, video);
     if (!allowed) return res.status(403).json({ error: "Ruxsat yo'q" });
 
-    const quality = req.query.quality && video.qualityVariants[req.query.quality]
-      ? req.query.quality
-      : "original";
-    const videoFile = video.qualityVariants.get
-      ? video.qualityVariants.get(quality) || video.videoFileName
-      : video.videoFileName;
+    const requestedQuality = req.query.quality;
+    const hasVariant =
+      requestedQuality && video.qualityVariants?.get(requestedQuality);
+    const quality = hasVariant ? requestedQuality : "original";
+    const videoFile =
+      video.qualityVariants?.get(quality) || video.videoFileName;
     const videoOnlyPath = path.join(VIDEO_DIR, videoFile);
     const audioOnlyPath = path.join(AUDIO_DIR, video.audioFileName);
 
